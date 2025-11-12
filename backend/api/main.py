@@ -3,10 +3,13 @@ FastAPI main application for Quantum Chat.
 """
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import Dict, List
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 from ..models.schemas import (
     BB84Config,
@@ -28,15 +31,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration - allow frontend URL from environment
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-allowed_origins = [
-    FRONTEND_URL,
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "https://quantum-chat-frontend.onrender.com",
-    "https://quantum-chat.srijan.dpdns.org"
-]
+# CORS configuration - allow all origins since we're serving frontend from same origin
+allowed_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -274,6 +270,34 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "active_sessions": len(session_manager.sessions)
     }
+
+
+# Serve static frontend files
+# Get the path to the frontend dist directory
+FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
+
+# Mount static files if dist directory exists
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """Serve frontend files for all non-API routes."""
+        # Skip API routes
+        if full_path.startswith("api/") or full_path.startswith("ws/") or full_path == "health" or full_path == "docs" or full_path == "openapi.json" or full_path == "redoc":
+            return {"error": "Not found"}
+
+        # Try to serve the requested file
+        file_path = FRONTEND_DIST / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+
+        # Default to index.html for SPA routing
+        index_path = FRONTEND_DIST / "index.html"
+        if index_path.exists():
+            return FileResponse(index_path)
+
+        return {"error": "Frontend not built"}
 
 
 if __name__ == "__main__":
