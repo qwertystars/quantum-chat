@@ -119,6 +119,26 @@ docker-compose up --build
 - Frontend: `http://localhost:3000`
 - API Docs: `http://localhost:8000/docs`
 
+### Option 3: Deploy to Render.com
+
+Deploy to the cloud with one click:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+Or manually:
+
+1. Fork this repository
+2. Sign up at [Render.com](https://render.com)
+3. Click "New" → "Blueprint"
+4. Connect your GitHub repository
+5. Render will auto-detect `render.yaml` and deploy both services
+
+**Live URLs:**
+- Frontend: `https://quantum-chat-frontend.onrender.com`
+- Backend: `https://quantum-chat-backend.onrender.com`
+
+📘 **Full deployment guide**: See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions, troubleshooting, and custom domain setup.
+
 ---
 
 ## 📖 How It Works

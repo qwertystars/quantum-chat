@@ -5,6 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, List
 import json
+import os
 from datetime import datetime
 
 from ..models.schemas import (
@@ -27,10 +28,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration
+# CORS configuration - allow frontend URL from environment
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+allowed_origins = [
+    FRONTEND_URL,
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://quantum-chat-frontend.onrender.com",
+    "https://quantum-chat.srijan.dpdns.org"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify actual origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
