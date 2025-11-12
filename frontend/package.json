@@ -1,0 +1,14 @@
+{
+  "name": "quantum-chat-frontend",
+  "version": "1.0.0",
+  "description": "Quantum Key Distribution-Based Secure Communication Frontend",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.10"
+  }
+}
