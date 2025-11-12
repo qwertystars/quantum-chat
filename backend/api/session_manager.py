@@ -2,6 +2,7 @@
 Session manager for handling quantum key exchange sessions.
 """
 import uuid
+import hashlib
 from datetime import datetime
 from typing import Dict, Optional, List
 from ..bb84 import BB84Protocol
@@ -37,9 +38,11 @@ class Session:
 
     def get_info(self) -> dict:
         """Get session information."""
+        # Use non-reversible hash fingerprint instead of exposing key bits
+        key_fingerprint = hashlib.sha256(self.quantum_key.encode()).hexdigest()[:16]
         return {
             'session_id': self.session_id,
-            'quantum_key': self.quantum_key[:16] + '...',  # Show only prefix
+            'key_fingerprint': key_fingerprint,  # Non-reversible hash, not raw key
             'key_length': self.bb84_result.get('key_length', 0),
             'qber': self.bb84_result.get('qber'),
             'created_at': self.created_at,

@@ -3,6 +3,7 @@ Cryptographic utilities for encrypting/decrypting messages using BB84-generated 
 """
 import base64
 import hashlib
+import hmac
 from cryptography.fernet import Fernet
 from typing import Tuple
 
@@ -50,22 +51,22 @@ class QuantumCrypto:
             plaintext: Message to encrypt
 
         Returns:
-            Encrypted message as base64 string
+            Encrypted message as string (Fernet already produces URL-safe base64)
         """
         encrypted_bytes = self.fernet.encrypt(plaintext.encode('utf-8'))
-        return base64.b64encode(encrypted_bytes).decode('utf-8')
+        return encrypted_bytes.decode('utf-8')
 
     def decrypt(self, ciphertext: str) -> str:
         """
         Decrypt a message.
 
         Args:
-            ciphertext: Encrypted message as base64 string
+            ciphertext: Encrypted message string
 
         Returns:
             Decrypted plaintext message
         """
-        encrypted_bytes = base64.b64decode(ciphertext.encode('utf-8'))
+        encrypted_bytes = ciphertext.encode('utf-8')
         decrypted_bytes = self.fernet.decrypt(encrypted_bytes)
         return decrypted_bytes.decode('utf-8')
 
@@ -96,7 +97,7 @@ class QuantumCrypto:
     @staticmethod
     def verify_keys_match(key1: str, key2: str) -> bool:
         """
-        Verify that two quantum keys match.
+        Verify that two quantum keys match using constant-time comparison.
 
         Args:
             key1: First quantum key (hex string)
@@ -105,7 +106,13 @@ class QuantumCrypto:
         Returns:
             True if keys match, False otherwise
         """
-        return key1 == key2
+        try:
+            key1_bytes = bytes.fromhex(key1)
+            key2_bytes = bytes.fromhex(key2)
+            return hmac.compare_digest(key1_bytes, key2_bytes)
+        except (ValueError, TypeError):
+            # Invalid hex string
+            return False
 
 
 def create_secure_channel(quantum_key: str) -> QuantumCrypto:

@@ -4,6 +4,7 @@ Alice module for BB84 protocol - the sender.
 import numpy as np
 from typing import List, Tuple
 from .qubit import Qubit, Basis, Bit
+from .utils import bits_to_hex_key
 
 
 class Alice:
@@ -103,20 +104,11 @@ class Alice:
 
         Returns:
             Final key as hexadecimal string
+
+        Raises:
+            ValueError: If insufficient bits are available
         """
-        # Take only the desired key length
-        final_bits = key_bits[:self.key_length]
-
-        # Pad if necessary
-        if len(final_bits) < self.key_length:
-            final_bits.extend([0] * (self.key_length - len(final_bits)))
-
-        # Convert bits to hex string
-        self.final_key = ''.join(
-            format(int(''.join(map(str, final_bits[i:i+8])), 2), '02x')
-            for i in range(0, len(final_bits), 8)
-        )
-
+        self.final_key = bits_to_hex_key(key_bits, self.key_length)
         return self.final_key
 
     def get_state(self) -> dict:

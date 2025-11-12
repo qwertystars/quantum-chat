@@ -83,6 +83,16 @@ class BB84Protocol:
         _, alice_remaining = self.alice.error_correction(sample_indices, bob_sample)
         bob_remaining = self.bob.error_correction(sample_indices)
 
+        # Check for sufficient bits before privacy amplification
+        if len(alice_remaining) < self.key_length or len(bob_remaining) < self.key_length:
+            self.key_established = False
+            return self._get_results(
+                success=False,
+                reason=f"Insufficient sifted bits for key generation: "
+                       f"Alice has {len(alice_remaining)}, Bob has {len(bob_remaining)}, "
+                       f"need {self.key_length}"
+            )
+
         alice_final_key = self.alice.privacy_amplification(alice_remaining)
         bob_final_key = self.bob.privacy_amplification(bob_remaining)
 

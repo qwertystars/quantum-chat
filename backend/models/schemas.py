@@ -87,7 +87,7 @@ class DecryptMessageResponse(BaseModel):
 class SessionInfo(BaseModel):
     """Information about a chat session."""
     session_id: str
-    quantum_key: str
+    key_fingerprint: str  # Non-reversible hash, not raw key
     key_length: int
     qber: Optional[float]
     created_at: str

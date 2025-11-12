@@ -163,7 +163,7 @@ function displayResult(response, container, onSuccess) {
                         </div>
                         <div class="stat">
                             <label>Efficiency:</label>
-                            <span>${((result.alice_state.final_key_length / result.alice_state.n_qubits) * 100).toFixed(1)}%</span>
+                            <span>${result.alice_state.n_qubits > 0 ? ((result.alice_state.final_key_length / result.alice_state.n_qubits) * 100).toFixed(1) : '0.0'}%</span>
                         </div>
                     </div>
                 </div>

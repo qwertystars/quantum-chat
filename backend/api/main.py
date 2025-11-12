@@ -60,9 +60,10 @@ class ConnectionManager:
 
     def disconnect(self, websocket: WebSocket, session_id: str):
         if session_id in self.active_connections:
-            self.active_connections[session_id].remove(websocket)
-            if not self.active_connections[session_id]:
-                del self.active_connections[session_id]
+            if websocket in self.active_connections[session_id]:
+                self.active_connections[session_id].remove(websocket)
+                if not self.active_connections[session_id]:
+                    del self.active_connections[session_id]
 
     async def broadcast(self, message: dict, session_id: str):
         if session_id in self.active_connections:

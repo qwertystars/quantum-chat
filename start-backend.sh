@@ -2,7 +2,10 @@
 # Start backend server
 
 echo "Starting Quantum Chat Backend..."
-cd backend
+cd backend || {
+    echo "Error: Could not access 'backend' directory" >&2
+    exit 1
+}
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
