@@ -1,0 +1,43 @@
+# Files to ignore during Render deployment
+.git
+.gitignore
+*.md
+!README.md
+!DEPLOYMENT.md
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules
+npm-debug.log*
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv
+env
+
+# Testing
+.coverage
+.pytest_cache
+htmlcov
+
+# Local environment
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs
+
+# Build artifacts (will be rebuilt)
+frontend/dist
+frontend/.vite
+backend/dist
