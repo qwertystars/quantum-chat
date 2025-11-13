@@ -97,15 +97,17 @@ print_success "Frontend built successfully"
 cd ..
 echo ""
 
+PORT="${PORT:-10000}"
+
 # Start the unified server
 print_step "Starting unified Quantum Chat server..."
 echo ""
 echo "======================================"
-echo -e "${GREEN}Server starting on http://localhost:10000${NC}"
+echo -e "${GREEN}Server starting on http://localhost:${PORT}${NC}"
 echo "======================================"
 echo ""
-echo "API Documentation: http://localhost:10000/docs"
-echo "WebSocket: ws://localhost:10000/ws/{session_id}"
+echo "API Documentation: http://localhost:${PORT}/docs"
+echo "WebSocket: ws://localhost:${PORT}/ws/{session_id}"
 echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop the server${NC}"
 echo ""
@@ -113,4 +115,4 @@ echo ""
 # Start the backend server which serves both API and frontend
 source backend/venv/bin/activate
 export PYTHONPATH="${PWD}:${PYTHONPATH}"
-uvicorn backend.api.main:app --host 0.0.0.0 --port 10000
+uvicorn backend.api.main:app --host 0.0.0.0 --port "${PORT}"
