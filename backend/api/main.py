@@ -70,9 +70,9 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@app.get("/")
-async def root():
-    """Root endpoint."""
+@app.get("/api/info")
+async def api_info():
+    """API information endpoint."""
     return {
         "name": "Quantum Chat API",
         "version": "1.0.0",
@@ -280,19 +280,26 @@ FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
-    @app.get("/{full_path:path}")
-    async def serve_frontend(full_path: str):
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str = ""):
         """Serve frontend files for all non-API routes."""
-        # Skip API routes
+        # Skip API routes - these should be handled by their specific endpoints
         if full_path.startswith("api/") or full_path.startswith("ws/") or full_path == "health" or full_path == "docs" or full_path == "openapi.json" or full_path == "redoc":
-            return {"error": "Not found"}
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # For root path or empty path, serve index.html
+        if full_path == "" or full_path == "/":
+            index_path = FRONTEND_DIST / "index.html"
+            if index_path.exists():
+                return FileResponse(index_path)
+            return {"error": "Frontend not built"}
 
         # Try to serve the requested file
         file_path = FRONTEND_DIST / full_path
         if file_path.is_file():
             return FileResponse(file_path)
 
-        # Default to index.html for SPA routing
+        # Default to index.html for SPA routing (for client-side routes)
         index_path = FRONTEND_DIST / "index.html"
         if index_path.exists():
             return FileResponse(index_path)
