@@ -1,0 +1,48 @@
+# Multi-stage build for production deployment with read-only filesystem support
+
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Install frontend dependencies
+COPY frontend/package*.json ./
+RUN npm ci --only=production
+
+# Copy frontend source and build
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Build Backend with Frontend
+FROM python:3.11-slim AS production
+
+WORKDIR /app
+
+# Disable Python bytecode generation (for read-only filesystem)
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install Python dependencies
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend application
+COPY backend/ ./
+
+# Copy built frontend from frontend-builder stage
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+# Pre-compile Python bytecode
+RUN python -m compileall -b .
+
+# Create necessary directories for tmpfs mounts
+RUN mkdir -p /tmp /run
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+EXPOSE 8000
+
+# Use Gunicorn for production
+CMD ["gunicorn", "api.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]
