@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: quantum-chat-app
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    # Read-only filesystem for security
+    read_only: true
+    # Tmpfs mounts for directories that need write access
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /run:size=10M,mode=755
+    restart: unless-stopped
+
+networks:
+  default:
+    name: quantum-chat-network

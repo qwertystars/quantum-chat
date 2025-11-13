@@ -10,9 +10,13 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-    volumes:
-      - ./backend:/app
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+      - PYTHONDONTWRITEBYTECODE=1
+    # Read-only filesystem
+    read_only: true
+    # Tmpfs mounts for directories that need write access
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /run:size=10M,mode=755
 
   frontend:
     build:
@@ -21,10 +25,14 @@ services:
     container_name: quantum-chat-frontend
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev -- --host
+    # Read-only filesystem
+    read_only: true
+    # Tmpfs mounts for directories that need write access
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /app/.vite:size=50M,mode=755
+    depends_on:
+      - backend
 
 networks:
   default:

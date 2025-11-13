@@ -19,7 +19,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # Frontend build
-frontend/dist/
+# frontend/dist/ - Committing dist for easier deployment
 frontend/.vite/
 
 # IDEs

@@ -1,21 +1,27 @@
 """
-BB84 protocol coordinator - orchestrates the quantum key distribution.
+BB84 protocol - Simplified implementation based on GitHub BB84 repo
+From: https://github.com/qwertystars/BB84
 """
-from typing import Optional, Dict, Any
-from .alice import Alice
-from .bob import Bob
-from .eve import Eve
-from .qubit import Bit
+import numpy as np
+from typing import Dict, Any
+from .utils import (
+    generate_random_bits,
+    generate_random_bases,
+    apply_channel_error,
+    sift_key,
+    calculate_qber,
+    bits_to_hex_key
+)
 
 
 class BB84Protocol:
-    """Coordinates the BB84 quantum key distribution protocol."""
+    """Simplified BB84 protocol for quantum key distribution."""
 
     def __init__(
         self,
         key_length: int = 256,
         enable_eve: bool = False,
-        eve_intercept_prob: float = 1.0,
+        eve_intercept_prob: float = 0.5,
         qber_threshold: float = 0.11
     ):
         """
@@ -23,8 +29,8 @@ class BB84Protocol:
 
         Args:
             key_length: Desired length of final key in bits
-            enable_eve: Whether to enable eavesdropping
-            eve_intercept_prob: Probability that Eve intercepts each qubit
+            enable_eve: Whether to enable eavesdropping simulation
+            eve_intercept_prob: Fraction of qubits Eve intercepts (0.0-1.0)
             qber_threshold: Maximum acceptable QBER (typically ~11% for BB84)
         """
         self.key_length = key_length
@@ -32,15 +38,11 @@ class BB84Protocol:
         self.eve_intercept_prob = eve_intercept_prob
         self.qber_threshold = qber_threshold
 
-        self.alice = Alice(key_length)
-        self.bob = Bob(key_length)
-        self.eve = None
-        if enable_eve:
-            self.eve = Eve(eve_intercept_prob)
-
-        self.qber: Optional[float] = None
-        self.key_established: bool = False
-        self.error_detected: bool = False
+        # Calculate how many qubits we need to generate the desired key length
+        # We need about 4x because:
+        # - 50% are discarded during basis sifting (bases don't match)
+        # - We need overhead for error correction and privacy amplification
+        self.qubit_count = max(key_length * 4, 1000)
 
     def run(self) -> Dict[str, Any]:
         """
@@ -49,95 +51,116 @@ class BB84Protocol:
         Returns:
             Dictionary with protocol results and statistics
         """
-        # Step 1: Alice prepares qubits
-        alice_qubits = self.alice.prepare_qubits()
+        # Step 1: Alice generates random bits and encodes them in random bases
+        alice_bits = generate_random_bits(self.qubit_count)
+        alice_bases = generate_random_bases(self.qubit_count)
 
-        # Step 2: Quantum channel transmission (with optional eavesdropping)
-        if self.enable_eve and self.eve:
-            transmitted_qubits = self.eve.intercept_qubits(alice_qubits)
-        else:
-            transmitted_qubits = alice_qubits
+        # Step 2: Bob generates random measurement bases
+        bob_bases = generate_random_bases(self.qubit_count)
 
-        # Step 3: Bob measures qubits
-        self.bob.measure_qubits(transmitted_qubits)
+        # Step 3: Simulate quantum channel transmission
+        transmitted_bits = alice_bits.copy()
 
-        # Step 4: Classical channel - basis comparison and sifting
-        alice_sifted = self.alice.sift_key(self.bob.bases)
-        bob_sifted = self.bob.sift_key(self.alice.bases)
+        # Step 3a: Eve's intercept-resend attack (if enabled)
+        if self.enable_eve:
+            eve_bases = generate_random_bases(self.qubit_count)
+            eve_intercepts = np.random.random(self.qubit_count) < self.eve_intercept_prob
 
-        # Step 5: Error estimation
-        sample_size = min(50, len(bob_sifted) // 4)  # Sample ~25%
-        sample_indices, bob_sample = self.bob.sample_for_error_check(sample_size)
+            for i in range(self.qubit_count):
+                if eve_intercepts[i]:
+                    # Eve measures in her random basis
+                    if alice_bases[i] != eve_bases[i]:
+                        # Wrong basis measurement causes 50% probability of error
+                        if np.random.random() < 0.5:
+                            transmitted_bits[i] = 1 - alice_bits[i]
 
-        alice_sample = [self.alice.sifted_key[i] for i in sample_indices]
-        errors = sum(1 for a, b in zip(alice_sample, bob_sample) if a != b)
-        self.qber = errors / len(alice_sample) if alice_sample else 0.0
+        # Step 3b: Channel noise (small error rate to be realistic)
+        channel_error_rate = 0.01  # 1% channel noise
+        transmitted_bits = apply_channel_error(transmitted_bits, channel_error_rate)
 
-        # Step 6: Check if QBER is acceptable
-        if self.qber > self.qber_threshold:
-            self.error_detected = True
-            self.key_established = False
-            return self._get_results(success=False, reason="QBER too high - possible eavesdropping")
+        # Step 4: Bob measures the qubits
+        bob_bits = transmitted_bits.copy()
 
-        # Step 7: Error correction and privacy amplification
-        _, alice_remaining = self.alice.error_correction(sample_indices, bob_sample)
-        bob_remaining = self.bob.error_correction(sample_indices)
+        # Step 5: Basis sifting - Alice and Bob publicly compare bases
+        sifted_key_str, matching_bases = sift_key(
+            alice_bits, bob_bits, alice_bases, bob_bases
+        )
 
-        # Check for sufficient bits before privacy amplification
-        if len(alice_remaining) < self.key_length or len(bob_remaining) < self.key_length:
-            self.key_established = False
-            return self._get_results(
-                success=False,
-                reason=f"Insufficient sifted bits for key generation: "
-                       f"Alice has {len(alice_remaining)}, Bob has {len(bob_remaining)}, "
-                       f"need {self.key_length}"
-            )
+        # Step 6: Calculate QBER from matching bases
+        qber = calculate_qber(alice_bits, bob_bits, matching_bases)
 
-        alice_final_key = self.alice.privacy_amplification(alice_remaining)
-        bob_final_key = self.bob.privacy_amplification(bob_remaining)
+        # Step 7: Check if QBER is acceptable
+        if qber > self.qber_threshold:
+            return {
+                'success': False,
+                'key_established': False,
+                'final_key': '',
+                'key_length': 0,
+                'qber': qber,
+                'qber_threshold': self.qber_threshold,
+                'error_detected': True,
+                'eavesdropping_enabled': self.enable_eve,
+                'failure_reason': f'QBER ({qber:.2%}) exceeds threshold ({self.qber_threshold:.2%}) - possible eavesdropping detected',
+                'alice_state': {
+                    'total_qubits': self.qubit_count,
+                    'sifted_bits': int(np.sum(matching_bases))
+                },
+                'bob_state': {
+                    'total_qubits': self.qubit_count,
+                    'sifted_bits': int(np.sum(matching_bases))
+                }
+            }
 
-        # Step 8: Verify keys match
-        if alice_final_key == bob_final_key:
-            self.key_established = True
-            return self._get_results(success=True, final_key=alice_final_key)
-        else:
-            self.key_established = False
-            return self._get_results(success=False, reason="Key mismatch after protocol")
+        # Step 8: Convert sifted bits to final key
+        sifted_bits_array = [int(b) for b in sifted_key_str]
 
-    def _get_results(self, success: bool, final_key: str = "", reason: str = "") -> Dict[str, Any]:
-        """
-        Compile protocol results.
+        if len(sifted_bits_array) < self.key_length:
+            return {
+                'success': False,
+                'key_established': False,
+                'final_key': '',
+                'key_length': 0,
+                'qber': qber,
+                'qber_threshold': self.qber_threshold,
+                'error_detected': False,
+                'eavesdropping_enabled': self.enable_eve,
+                'failure_reason': f'Insufficient sifted bits: have {len(sifted_bits_array)}, need {self.key_length}',
+                'alice_state': {
+                    'total_qubits': self.qubit_count,
+                    'sifted_bits': len(sifted_bits_array)
+                },
+                'bob_state': {
+                    'total_qubits': self.qubit_count,
+                    'sifted_bits': len(sifted_bits_array)
+                }
+            }
 
-        Args:
-            success: Whether key was successfully established
-            final_key: The final shared key (if successful)
-            reason: Reason for failure (if unsuccessful)
+        # Convert bits to hex key
+        final_key = bits_to_hex_key(sifted_bits_array, self.key_length)
 
-        Returns:
-            Dictionary with complete protocol results
-        """
-        results = {
-            'success': success,
-            'key_established': self.key_established,
+        # Success!
+        return {
+            'success': True,
+            'key_established': True,
             'final_key': final_key,
-            'key_length': len(final_key) * 4 if final_key else 0,  # hex to bits
-            'qber': self.qber,
+            'key_length': self.key_length,
+            'qber': qber,
             'qber_threshold': self.qber_threshold,
-            'error_detected': self.error_detected,
+            'error_detected': False,
             'eavesdropping_enabled': self.enable_eve,
-            'alice_state': self.alice.get_state(),
-            'bob_state': self.bob.get_state(),
+            'alice_state': {
+                'total_qubits': self.qubit_count,
+                'sifted_bits': len(sifted_bits_array),
+                'final_key_length': self.key_length
+            },
+            'bob_state': {
+                'total_qubits': self.qubit_count,
+                'sifted_bits': len(sifted_bits_array),
+                'final_key_length': self.key_length
+            }
         }
 
-        if self.enable_eve and self.eve:
-            results['eve_state'] = self.eve.get_state()
-
-        if not success:
-            results['failure_reason'] = reason
-
-        return results
-
-    def calculate_qber(self, alice_bits: list[Bit], bob_bits: list[Bit]) -> float:
+    def calculate_qber(self, alice_bits, bob_bits):
         """
         Calculate Quantum Bit Error Rate.
 
@@ -148,8 +171,4 @@ class BB84Protocol:
         Returns:
             QBER as a fraction
         """
-        if not alice_bits or not bob_bits or len(alice_bits) != len(bob_bits):
-            return 0.0
-
-        errors = sum(1 for a, b in zip(alice_bits, bob_bits) if a != b)
-        return errors / len(alice_bits)
+        return calculate_qber(alice_bits, bob_bits, alice_bits == alice_bits)
